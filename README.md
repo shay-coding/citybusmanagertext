@@ -1,6 +1,6 @@
 # City Bus Manager Text Version
 
-City Bus Manager is a text-based bus company management simulation game written in Python.  
+City Bus Manager text version is a text-based bus company management simulation game written in Python.  
 Manage your bus fleet, create routes, assign buses, and run daily operations to grow your company.
 
 ## Features
