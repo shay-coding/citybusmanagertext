@@ -411,7 +411,7 @@ def buy_new_bus(state: ManagerState):
         ("Wright Eclipse Urban 2", 40, 150.0, 0.25, 72000),
         ("Wright Eclipse Gemini", 80, 230.0, 0.37, 130000),
         ("Wright Eclipse Gemini 2", 80, 230.0, 0.36, 132000),
-        ("Wright Eclipse Gemini 3", 80, 230.0, 0.35, 135000),
+        ("Wright Eclipse Gemini 3 [stealth]", 80, 230.0, 0.35, 135000),
         ("Scania N94UD Omnidekka", 80, 240.0, 0.40, 138000),
         ("Scania N270UD Omnicity", 80, 230.0, 0.38, 140000),
         ("Scania N230UD Enviro400", 80, 240.0, 0.37, 137000),
