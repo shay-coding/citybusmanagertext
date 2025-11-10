@@ -1,6 +1,8 @@
 import random
 import sys
 import json
+import os
+import glob
 from dataclasses import dataclass, field, asdict
 from typing import List, Optional
 
@@ -55,7 +57,8 @@ class Bus:
     assigned_route: Optional[str] = None
     health: int = 100
     purchase_price: float = 0.0
-    fleet_number: Optional[str] = None  # New field for fleet number
+    fleet_number: Optional[str] = None
+    dlc_source: Optional[str] = None  # Track which DLC this bus came from
 
     def consume_fuel(self, distance, speed=50):
         speed_factor = speed / 50
@@ -80,6 +83,7 @@ class Bus:
             health=data.get("health", 100),
             purchase_price=data.get("purchase_price", 0.0),
             fleet_number=data.get("fleet_number"),
+            dlc_source=data.get("dlc_source"),
         )
 
 @dataclass
@@ -87,10 +91,10 @@ class ManagerState:
     company_name: str
     routes: List[Route] = field(default_factory=list)
     fleet: List[Bus] = field(default_factory=list)
-    money: float = 2500000.0  # Starting cash for new company
+    money: float = 2500000.0
     reputation: float = 50.0
     day: int = 1
-    next_bus_id: int = 1  # start IDs from 1 since empty fleet
+    next_bus_id: int = 1
 
     def to_dict(self):
         return {
@@ -116,6 +120,54 @@ class ManagerState:
             day=data["day"],
             next_bus_id=data.get("next_bus_id", 1),
         )
+
+
+def load_dlc_vehicles():
+    """Load all vehicle DLC files from the dlcs_and_mods/ directory"""
+    dlc_vehicles = []
+    
+    # Get the script's directory (CBMText folder)
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    dlc_folder = os.path.join(script_dir, "dlcs_and_mods")
+    
+    if not os.path.exists(dlc_folder):
+        print(f"Note: dlcs_and_mods folder not found at {dlc_folder}")
+        return dlc_vehicles
+    
+    # Find all JSON files in the dlcs_and_mods folder
+    dlc_files = glob.glob(os.path.join(dlc_folder, "*.json"))
+    
+    for dlc_file in dlc_files:
+        try:
+            with open(dlc_file, 'r') as f:
+                data = json.load(f)
+                
+            # Validate DLC format
+            if "dlc_name" not in data or "vehicles" not in data:
+                print(f"Warning: {dlc_file} missing required fields (dlc_name, vehicles). Skipping.")
+                continue
+            
+            dlc_name = data["dlc_name"]
+            vehicles = data["vehicles"]
+            
+            # Validate each vehicle
+            for vehicle in vehicles:
+                required_fields = ["model", "capacity", "fuel_capacity", "fuel_efficiency", "price"]
+                if all(field in vehicle for field in required_fields):
+                    # Add DLC source to each vehicle
+                    vehicle["dlc_source"] = dlc_name
+                    dlc_vehicles.append(vehicle)
+                else:
+                    print(f"Warning: Vehicle in {dlc_file} missing required fields. Skipping.")
+            
+            print(f"Loaded DLC: {dlc_name} ({len(vehicles)} vehicles)")
+            
+        except json.JSONDecodeError:
+            print(f"Warning: {dlc_file} is not valid JSON. Skipping.")
+        except Exception as e:
+            print(f"Warning: Error loading {dlc_file}: {e}. Skipping.")
+    
+    return dlc_vehicles
 
 
 def save_game(state: ManagerState):
@@ -181,7 +233,8 @@ def view_fleet(state: ManagerState):
         for bus in state.fleet:
             route_name = next((r.name for r in state.routes if r.assigned_bus_id == bus.bus_id), "None")
             fn = bus.fleet_number if bus.fleet_number else "N/A"
-            print(f"[{bus.bus_id}] {bus.model} (Fleet No: {fn}) | Capacity: {bus.capacity} | Fuel: {bus.fuel_level:.1f}L | Health: {bus.health} | Assigned Route: {route_name}")
+            dlc_tag = f" [{bus.dlc_source}]" if bus.dlc_source else ""
+            print(f"[{bus.bus_id}] {bus.model}{dlc_tag} (Fleet No: {fn}) | Capacity: {bus.capacity} | Fuel: {bus.fuel_level:.1f}L | Health: {bus.health} | Assigned Route: {route_name}")
 
         print("\nOptions: [E] Edit Fleet Number, [Q] Return to Main Menu")
         choice = input("> ").strip().lower()
@@ -226,7 +279,6 @@ def edit_fleet_number(state: ManagerState):
         print("Edit cancelled.")
         return
 
-    # Check duplicates
     if any(b.fleet_number == new_number and b.bus_id != bus.bus_id for b in state.fleet):
         print(f"Fleet number '{new_number}' already in use by another bus. Edit cancelled.")
         return
@@ -274,12 +326,10 @@ def assign_bus_to_route(state: ManagerState):
 
     route = state.routes[route_idx]
 
-    # Unassign bus from any other route
     for r in state.routes:
         if r.assigned_bus_id == bus.bus_id:
             r.assigned_bus_id = None
 
-    # Assign bus
     route.assigned_bus_id = bus.bus_id
     bus.assigned_route = route.name
     print(f"Assigned {bus.model} (Fleet No: {bus.fleet_number if bus.fleet_number else 'N/A'}) to {route.name}")
@@ -330,7 +380,6 @@ def run_day_simulation(state: ManagerState):
     total_fuel_cost = 0.0
     reputation_change = 0.0
 
-    # For each route, simulate trip
     for route in state.routes:
         bus = next((b for b in state.fleet if b.bus_id == route.assigned_bus_id), None)
         if not bus:
@@ -342,21 +391,16 @@ def run_day_simulation(state: ManagerState):
         print(f"Bus: {bus.model} (Fleet No: {bus.fleet_number if bus.fleet_number else 'N/A'}) (Capacity: {bus.capacity})")
         print(f"Schedule time: {route.current_schedule_minutes} mins")
 
-        # Calculate distance
         total_distance = sum(stop.distance_from_prev_km for stop in route.stops[1:])
-        # Assume ticket price £2.50 for simplicity
         ticket_price = 2.50
 
-        # Passengers demand approx proportional to stops and route length
         avg_demand = int(total_distance * 10)
         passengers = min(bus.capacity, random.randint(max(0, avg_demand - 5), avg_demand + 5))
         earnings = passengers * ticket_price
 
-        # Fuel consumption
         fuel_used = bus.consume_fuel(total_distance)
-        fuel_cost = fuel_used * 1.60  # £1.60 per litre
+        fuel_cost = fuel_used * 1.60
 
-        # Random event chance
         if random.random() < 0.15:
             event = random.choice(["flat tyre", "engine trouble", "heavy traffic"])
             print(f"** Event: {event}! Delays the route and costs £20 to fix. **")
@@ -365,9 +409,7 @@ def run_day_simulation(state: ManagerState):
         else:
             reputation_change += 1
 
-        # Time impact on reputation
         if route.current_schedule_minutes < route.base_schedule_minutes:
-            # Risky tight schedule
             if random.random() < 0.3:
                 print("Tight schedule caused delays and unhappy passengers!")
                 reputation_change -= 2
@@ -397,36 +439,51 @@ def run_day_simulation(state: ManagerState):
     print(f"Money available: £{state.money:.2f}")
 
 def buy_new_bus(state: ManagerState):
+    # Base game vehicles
     shop = [
-        ("ADL Enviro200", 40, 160.0, 0.26, 90000),
-        ("ADL Enviro200 MMC", 40, 160.0, 0.25, 95000),
-        ("ADL Enviro400", 80, 240.0, 0.38, 135000),
-        ("ADL Enviro400 MMC", 80, 240.0, 0.38, 140000),
-        ("ADL Enviro400 City", 80, 240.0, 0.37, 145000),
-        ("Wright Streetlite DF", 40, 150.0, 0.25, 72000),
-        ("Wright Streetlite WF", 40, 150.0, 0.24, 73000),
-        ("Wright Streetdeck", 75, 220.0, 0.36, 125000),
-        ("Wright Streetdeck Ultroliner", 75, 220.0, 0.35, 130000),
-        ("Wright Eclipse Urban", 40, 150.0, 0.26, 70000),
-        ("Wright Eclipse Urban 2", 40, 150.0, 0.25, 72000),
-        ("Wright Eclipse Gemini", 80, 230.0, 0.37, 130000),
-        ("Wright Eclipse Gemini 2", 80, 230.0, 0.36, 132000),
-        ("Wright Eclipse Gemini 3 [stealth]", 80, 230.0, 0.35, 135000),
-        ("Scania N94UD Omnidekka", 80, 240.0, 0.40, 138000),
-        ("Scania N270UD Omnicity", 80, 230.0, 0.38, 140000),
-        ("Scania N230UD Enviro400", 80, 240.0, 0.37, 137000),
-        ("Scania N250UD Enviro400 MMC", 80, 240.0, 0.36, 142000),
-        ("Scania L94UB Wright Solar", 40, 150.0, 0.26, 72000),
-        ("Optare Solo", 30, 120.0, 0.22, 60000),
-        ("Optare Solo SR", 30, 120.0, 0.22, 62000),
-        ("Dennis Trident Optare Olympus", 75, 230.0, 0.38, 125000),
-        ("Volvo B7TL Plaxton President", 80, 230.0, 0.39, 130000),
-        ("Dennis Dart MPD", 35, 140.0, 0.24, 65000),
+        ("ADL Enviro200", 40, 160.0, 0.26, 90000, None),
+        ("ADL Enviro200 MMC", 40, 160.0, 0.25, 95000, None),
+        ("ADL Enviro400", 80, 240.0, 0.38, 135000, None),
+        ("ADL Enviro400 MMC", 80, 240.0, 0.38, 140000, None),
+        ("ADL Enviro400 City", 80, 240.0, 0.37, 145000, None),
+        ("Wright Streetlite DF", 40, 150.0, 0.25, 72000, None),
+        ("Wright Streetlite WF", 40, 150.0, 0.24, 73000, None),
+        ("Wright Streetdeck", 75, 220.0, 0.36, 125000, None),
+        ("Wright Streetdeck Ultroliner", 75, 220.0, 0.35, 130000, None),
+        ("Wright Eclipse Urban", 40, 150.0, 0.26, 70000, None),
+        ("Wright Eclipse Urban 2", 40, 150.0, 0.25, 72000, None),
+        ("Wright Eclipse Gemini", 80, 230.0, 0.37, 130000, None),
+        ("Wright Eclipse Gemini 2", 80, 230.0, 0.36, 132000, None),
+        ("Wright Eclipse Gemini 3 [stealth]", 80, 230.0, 0.35, 135000, None),
+        ("Scania N94UD Omnidekka", 80, 240.0, 0.40, 138000, None),
+        ("Scania N270UD Omnicity", 80, 230.0, 0.38, 140000, None),
+        ("Scania N230UD Enviro400", 80, 240.0, 0.37, 137000, None),
+        ("Scania N250UD Enviro400 MMC", 80, 240.0, 0.36, 142000, None),
+        ("Scania L94UB Wright Solar", 40, 150.0, 0.26, 72000, None),
+        ("Optare Solo", 30, 120.0, 0.22, 60000, None),
+        ("Optare Solo SR", 30, 120.0, 0.22, 62000, None),
+        ("Dennis Trident Optare Olympus", 75, 230.0, 0.38, 125000, None),
+        ("Volvo B7TL Plaxton President", 80, 230.0, 0.39, 130000, None),
+        ("Dennis Dart MPD", 35, 140.0, 0.24, 65000, None),
     ]
+    
+    # Load DLC vehicles
+    dlc_vehicles = load_dlc_vehicles()
+    for dlc_vehicle in dlc_vehicles:
+        shop.append((
+            dlc_vehicle["model"],
+            dlc_vehicle["capacity"],
+            dlc_vehicle["fuel_capacity"],
+            dlc_vehicle["fuel_efficiency"],
+            dlc_vehicle["price"],
+            dlc_vehicle["dlc_source"]
+        ))
 
     print("\n--- Bus Shop ---")
-    for i, (model, capacity, fuel_cap, efficiency, price) in enumerate(shop, 1):
-        print(f"[{i}] {model} | Capacity: {capacity} | Price: £{price:,}")
+    for i, item in enumerate(shop, 1):
+        model, capacity, fuel_cap, efficiency, price, dlc_source = item
+        dlc_tag = f" [{dlc_source}]" if dlc_source else ""
+        print(f"[{i}] {model}{dlc_tag} | Capacity: {capacity} | Price: £{price:,}")
 
     print(f"Current money: £{state.money:.2f}")
     print("Select bus to buy or 0 to cancel:")
@@ -445,13 +502,12 @@ def buy_new_bus(state: ManagerState):
         print("Invalid choice.")
         return
 
-    model, capacity, fuel_cap, efficiency, price = shop[choice - 1]
+    model, capacity, fuel_cap, efficiency, price, dlc_source = shop[choice - 1]
 
     if state.money < price:
         print("You can't afford that bus yet!")
         return
 
-    # Fleet number assignment
     print("Enter fleet number (or leave blank for auto-assignment):")
     entered_number = input("> ").strip()
 
@@ -469,10 +525,12 @@ def buy_new_bus(state: ManagerState):
 
     bus_id = state.next_bus_id
     state.next_bus_id += 1
-    new_bus = Bus(bus_id, model, capacity, fuel_cap, fuel_cap, efficiency, purchase_price=price, fleet_number=fleet_number)
+    new_bus = Bus(bus_id, model, capacity, fuel_cap, fuel_cap, efficiency, 
+                   purchase_price=price, fleet_number=fleet_number, dlc_source=dlc_source)
     state.fleet.append(new_bus)
     state.money -= price
-    print(f"Congratulations! You bought a new {model} with fleet number {fleet_number} for £{price:,}.")
+    dlc_msg = f" from {dlc_source}" if dlc_source else ""
+    print(f"Congratulations! You bought a new {model}{dlc_msg} with fleet number {fleet_number} for £{price:,}.")
 
 def add_route(state: ManagerState):
     print("\n--- Add New Route ---")
@@ -518,7 +576,6 @@ def add_route(state: ManagerState):
         print("You don't have enough money to create this route.")
         return
 
-    # Base schedule: sum distances / avg speed (30 km/h) * 60 to minutes
     total_distance = sum(stop.distance_from_prev_km for stop in stops[1:])
     base_schedule = max(int(total_distance / 30 * 60), 10)
 
