@@ -31,27 +31,7 @@ Follow these steps to install and run **City Bus Manager Text** on your computer
 
 ## 1️⃣ Download the Game
 
-You can either:
-
-**Option A: Clone with Git**
-```bash
-git clone https://github.com/yourusername/CBMText.git
-```
-*(Replace `yourusername` with your actual GitHub username)*
-
-**Option B: Download ZIP**
-- Download the ZIP file directly from the GitHub page
-- Extract it to your preferred location
-
-## 2️⃣ Folder Structure
-
-After downloading or cloning, your files should look like this:
-```
-CBMText/
-├── game.py
-├── saves/                # Required for save files
-└── dlcs_and_mods/        # This is optional for DLC/mod vehicle packs only. The game runs normally without it.
-```
+Download the Zipped File [here](https://drive.google.com/file/d/13-nQkOcsh9Gfk7OHI-PUS8e6fnSDk0rx/view?usp=drive_link) and then unzip the file
 
 ## 3️⃣ Install Python
 
