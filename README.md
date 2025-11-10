@@ -97,8 +97,9 @@ python3 game.py
 
 To install DLCs or mods:
 
-1. Download the `.json` file (e.g., `electric_buses_pack.json`)
-2. Place it in the `dlcs_and_mods/` folder:
+1. Download the DLC or Mod from from: [the offical gooogle drive folder](https://drive.google.com/drive/folders/1gSySG89u-Sa8WN7JUTkuF0Upp9qig66G?usp=drive_link)
+2. Download the `.json` file (e.g., `electric_buses_pack.json`)
+3. Place it in the `dlcs_and_mods/` folder:
 ```
    CBMText/dlcs_and_mods/
 ```
