@@ -675,5 +675,5 @@ if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        print("\nExiting City Bus Manager. Ta-ra!")
+        print("\nExiting City Bus Manager Text Edition")
         sys.exit(0)
