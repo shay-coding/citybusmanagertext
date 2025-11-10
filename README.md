@@ -23,22 +23,88 @@ Manage your bus fleet, create routes, assign buses, and run daily operations to 
 
 - Python 3.7 or higher
 
-## Installation
+  ---
 
-1. Clone or download this repository
-2. Ensure the following folder structure:
-   ```
-   CBMText/
-   ├── game.py
-   └── dlcs_and_mods/  (optional - for DLC vehicle packs)
-   ```
+# 🛠️ Installation & Running the Game
 
-## How to Run
+Follow these steps to install and run **City Bus Manager Text** on your computer.
 
-Navigate to the `CBMText` folder and run:
+## 1️⃣ Download the Game
+
+You can either:
+
+**Option A: Clone with Git**
 ```bash
+git clone https://github.com/yourusername/CBMText.git
+```
+*(Replace `yourusername` with your actual GitHub username)*
+
+**Option B: Download ZIP**
+- Download the ZIP file directly from the GitHub page
+- Extract it to your preferred location
+
+## 2️⃣ Folder Structure
+
+After downloading or cloning, your files should look like this:
+```
+CBMText/
+├── game.py
+├── saves/                # Required for save files
+└── dlcs_and_mods/        # This is optional for DLC/mod vehicle packs only. The game runs normally without it.
+```
+
+## 3️⃣ Install Python
+
+**Requirements:** Python 3.7 or higher
+
+**Check your Python version:**
+```bash
+python --version
+```
+or
+```bash
+python3 --version
+```
+
+**Don't have Python?**  
+👉 Download it from: [python.org/downloads](https://www.python.org/downloads/)
+
+## 4️⃣ Run the Game
+
+Open your terminal/command prompt, navigate to the game folder, and run:
+
+**🪟 Windows**
+```bash
+cd path\to\CBMText
 python game.py
 ```
+
+**🍎 macOS**
+```bash
+cd /path/to/CBMText
+python3 game.py
+```
+
+**🐧 Linux**
+```bash
+cd /path/to/CBMText
+python3 game.py
+```
+
+💬 **Troubleshooting:** If you get a "python not found" error, try using `py` instead of `python`.
+
+## 5️⃣ (Optional) Add DLC Packs
+
+To install DLCs or mods:
+
+1. Download the `.json` file (e.g., `electric_buses_pack.json`)
+2. Place it in the `dlcs_and_mods/` folder:
+```
+   CBMText/dlcs_and_mods/
+```
+3. Restart the game — all DLCs load automatically! ✨
+
+---
 
 ## Gameplay
 
