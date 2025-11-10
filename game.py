@@ -6,6 +6,16 @@ import glob
 from dataclasses import dataclass, field, asdict
 from typing import List, Optional
 
+# Import running board functionality
+from running_boards import (
+    RunningBoard, Trip,
+    create_running_board_interactive,
+    view_running_boards,
+    list_running_boards,
+    load_running_board,
+    save_running_board
+)
+
 @dataclass
 class Stop:
     name: str
@@ -95,6 +105,7 @@ class ManagerState:
     reputation: float = 50.0
     day: int = 1
     next_bus_id: int = 1
+    use_running_boards: bool = False  # Toggle between static and dynamic assignment
 
     def to_dict(self):
         return {
@@ -105,6 +116,7 @@ class ManagerState:
             "reputation": self.reputation,
             "day": self.day,
             "next_bus_id": self.next_bus_id,
+            "use_running_boards": self.use_running_boards,
         }
 
     @staticmethod
@@ -119,37 +131,38 @@ class ManagerState:
             reputation=data["reputation"],
             day=data["day"],
             next_bus_id=data.get("next_bus_id", 1),
+            use_running_boards=data.get("use_running_boards", False),
         )
 
 
 def load_dlc_vehicles():
     """Load all vehicle DLC files from the dlcs_and_mods/ directory"""
     dlc_vehicles = []
-    
+
     # Get the script's directory (CBMText folder)
     script_dir = os.path.dirname(os.path.abspath(__file__))
     dlc_folder = os.path.join(script_dir, "dlcs_and_mods")
-    
+
     if not os.path.exists(dlc_folder):
         print(f"Note: dlcs_and_mods folder not found at {dlc_folder}")
         return dlc_vehicles
-    
+
     # Find all JSON files in the dlcs_and_mods folder
     dlc_files = glob.glob(os.path.join(dlc_folder, "*.json"))
-    
+
     for dlc_file in dlc_files:
         try:
             with open(dlc_file, 'r') as f:
                 data = json.load(f)
-                
+
             # Validate DLC format
             if "dlc_name" not in data or "vehicles" not in data:
                 print(f"Warning: {dlc_file} missing required fields (dlc_name, vehicles). Skipping.")
                 continue
-            
+
             dlc_name = data["dlc_name"]
             vehicles = data["vehicles"]
-            
+
             # Validate each vehicle
             for vehicle in vehicles:
                 required_fields = ["model", "capacity", "fuel_capacity", "fuel_efficiency", "price"]
@@ -159,39 +172,104 @@ def load_dlc_vehicles():
                     dlc_vehicles.append(vehicle)
                 else:
                     print(f"Warning: Vehicle in {dlc_file} missing required fields. Skipping.")
-            
+
             print(f"Loaded DLC: {dlc_name} ({len(vehicles)} vehicles)")
-            
+
         except json.JSONDecodeError:
             print(f"Warning: {dlc_file} is not valid JSON. Skipping.")
         except Exception as e:
             print(f"Warning: Error loading {dlc_file}: {e}. Skipping.")
-    
+
     return dlc_vehicles
 
 
 def save_game(state: ManagerState):
+    # Create saves folder if it doesn't exist
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    saves_folder = os.path.join(script_dir, "saves")
+
+    if not os.path.exists(saves_folder):
+        os.makedirs(saves_folder)
+        print(f"Created saves folder at {saves_folder}")
+
     filename = input("Enter filename to save to (e.g. my_company_save.json): ").strip()
     if not filename:
         print("Invalid filename. Save cancelled.")
         return
+
+    # Add .json extension if not present
+    if not filename.endswith('.json'):
+        filename += '.json'
+
+    filepath = os.path.join(saves_folder, filename)
+
     try:
-        with open(filename, "w") as f:
+        with open(filepath, "w") as f:
             json.dump(state.to_dict(), f, indent=2)
-        print(f"Game saved successfully to '{filename}'.")
+        print(f"Game saved successfully to 'saves/{filename}'.")
     except Exception as e:
         print(f"Error saving game: {e}")
 
 def load_game() -> Optional[ManagerState]:
-    filename = input("Enter filename to load from (e.g. my_company_save.json): ").strip()
-    if not filename:
-        print("Invalid filename. Load cancelled.")
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    saves_folder = os.path.join(script_dir, "saves")
+
+    if not os.path.exists(saves_folder):
+        print("No saves folder found. No saved games available.")
         return None
+
+    # List available save files
+    save_files = [f for f in os.listdir(saves_folder) if f.endswith('.json')]
+
+    if not save_files:
+        print("No saved games found in saves folder.")
+        return None
+
+    print("\n--- Available Saved Games ---")
+    for i, save_file in enumerate(sorted(save_files), 1):
+        # Try to read company name from save
+        try:
+            filepath = os.path.join(saves_folder, save_file)
+            with open(filepath, "r") as f:
+                data = json.load(f)
+            company = data.get("company_name", "Unknown")
+            day = data.get("day", "?")
+            money = data.get("money", 0)
+            print(f"[{i}] {save_file} - {company} (Day {day}, £{money:,.2f})")
+        except:
+            print(f"[{i}] {save_file}")
+
+    print("\nEnter save number to load, or type filename directly (or 0 to cancel):")
+    choice = input("> ").strip()
+
+    if choice == "0":
+        print("Load cancelled.")
+        return None
+
+    # Check if it's a number (selecting from list)
     try:
-        with open(filename, "r") as f:
+        choice_num = int(choice)
+        if 1 <= choice_num <= len(save_files):
+            filename = sorted(save_files)[choice_num - 1]
+        else:
+            print("Invalid selection.")
+            return None
+    except ValueError:
+        # It's a filename
+        filename = choice
+        if not filename.endswith('.json'):
+            filename += '.json'
+        if filename not in save_files:
+            print(f"Save file '{filename}' not found.")
+            return None
+
+    filepath = os.path.join(saves_folder, filename)
+
+    try:
+        with open(filepath, "r") as f:
             data = json.load(f)
         state = ManagerState.from_dict(data)
-        print(f"Game loaded successfully from '{filename}'.")
+        print(f"Game loaded successfully from 'saves/{filename}'.")
         return state
     except FileNotFoundError:
         print(f"File '{filename}' not found.")
@@ -201,7 +279,8 @@ def load_game() -> Optional[ManagerState]:
 
 
 def print_main_menu(state: ManagerState):
-    print(f"\n===== City Bus Manager — {state.company_name} =====")
+    mode = "Running Boards" if state.use_running_boards else "Static Routes"
+    print(f"\n===== City Bus Manager – {state.company_name} [Mode: {mode}] =====")
     print("1) View Routes")
     print("2) View Fleet")
     print("3) Assign Bus to Route")
@@ -213,7 +292,9 @@ def print_main_menu(state: ManagerState):
     print("9) View Company Status")
     print("10) Save Game")
     print("11) Load Game")
-    print("12) Quit")
+    print("12) Running Board Management")
+    print("13) Toggle Assignment Mode")
+    print("14) Quit")
 
 def view_routes(state: ManagerState):
     if not state.routes:
@@ -222,7 +303,8 @@ def view_routes(state: ManagerState):
     print("\n--- Routes ---")
     for i, route in enumerate(state.routes, 1):
         assigned_bus = next((b.model for b in state.fleet if b.bus_id == route.assigned_bus_id), "None")
-        print(f"[{i}] {route.name} | Schedule: {route.current_schedule_minutes} mins | Bus: {assigned_bus}")
+        total_distance = sum(stop.distance_from_prev_km for stop in route.stops[1:])
+        print(f"[{i}] {route.name} | Distance: {total_distance:.1f}km | Schedule: {route.current_schedule_minutes} mins | Bus: {assigned_bus}")
 
 def view_fleet(state: ManagerState):
     if not state.fleet:
@@ -234,7 +316,20 @@ def view_fleet(state: ManagerState):
             route_name = next((r.name for r in state.routes if r.assigned_bus_id == bus.bus_id), "None")
             fn = bus.fleet_number if bus.fleet_number else "N/A"
             dlc_tag = f" [{bus.dlc_source}]" if bus.dlc_source else ""
-            print(f"[{bus.bus_id}] {bus.model}{dlc_tag} (Fleet No: {fn}) | Capacity: {bus.capacity} | Fuel: {bus.fuel_level:.1f}L | Health: {bus.health} | Assigned Route: {route_name}")
+
+            # Check running board assignments
+            rb_assignments = []
+            if state.use_running_boards:
+                for board_name in list_running_boards():
+                    board = load_running_board(board_name)
+                    if board and board.assigned_bus_id == bus.bus_id:
+                        rb_assignments.append(board.name)
+
+            assignment_info = f"Route: {route_name}"
+            if rb_assignments:
+                assignment_info = f"Running Boards: {', '.join(rb_assignments)}"
+
+            print(f"[{bus.bus_id}] {bus.model}{dlc_tag} (Fleet No: {fn}) | Capacity: {bus.capacity} | Fuel: {bus.fuel_level:.1f}L | Health: {bus.health} | {assignment_info}")
 
         print("\nOptions: [E] Edit Fleet Number, [Q] Return to Main Menu")
         choice = input("> ").strip().lower()
@@ -287,6 +382,10 @@ def edit_fleet_number(state: ManagerState):
     print(f"Fleet number updated to '{new_number}' for bus ID {bus.bus_id}.")
 
 def assign_bus_to_route(state: ManagerState):
+    if state.use_running_boards:
+        print("\nYou are in Running Board mode. Use Running Board Management (option 12) to assign buses.")
+        return
+
     if not state.fleet:
         print("\nNo buses available. Buy some first.")
         return
@@ -367,7 +466,8 @@ def change_route_schedule(state: ManagerState):
     route.current_schedule_minutes = new_time
     print(f"Schedule updated: {route.name} now runs in {new_time} minutes.")
 
-def run_day_simulation(state: ManagerState):
+def run_day_simulation_static(state: ManagerState):
+    """Original static route simulation"""
     if not state.routes:
         print("\nNo routes available to run.")
         return
@@ -375,7 +475,7 @@ def run_day_simulation(state: ManagerState):
         print("\nNo buses available to run routes.")
         return
 
-    print(f"\n--- Running Day Simulation: Day {state.day} ---")
+    print(f"\n--- Running Day Simulation (Static Mode): Day {state.day} ---")
     total_earnings = 0.0
     total_fuel_cost = 0.0
     reputation_change = 0.0
@@ -438,6 +538,102 @@ def run_day_simulation(state: ManagerState):
     print(f"New reputation: {state.reputation:.1f}/100")
     print(f"Money available: £{state.money:.2f}")
 
+def run_day_simulation_running_boards(state: ManagerState):
+    """New dynamic simulation using running boards"""
+    boards = []
+    for board_name in list_running_boards():
+        board = load_running_board(board_name)
+        if board and board.assigned_bus_id:
+            boards.append(board)
+
+    if not boards:
+        print("\nNo running boards with assigned buses available.")
+        print("Use Running Board Management (option 12) to create and assign running boards.")
+        return
+
+    print(f"\n--- Running Day Simulation (Running Board Mode): Day {state.day} ---")
+    print(f"Operating {len(boards)} running board(s)...\n")
+
+    total_earnings = 0.0
+    total_fuel_cost = 0.0
+    reputation_change = 0.0
+
+    for board in boards:
+        bus = next((b for b in state.fleet if b.bus_id == board.assigned_bus_id), None)
+        if not bus:
+            print(f"Running board '{board.name}' has invalid bus assignment! Skipping.")
+            continue
+
+        print(f"\n--- Running Board: {board.name} ---")
+        print(f"Bus: {bus.model} (Fleet No: {bus.fleet_number if bus.fleet_number else 'N/A'})")
+        print(f"Total trips: {len(board.trips)}")
+
+        board_earnings = 0.0
+        board_fuel = 0.0
+        trips_completed = 0
+
+        for trip in board.trips:
+            route = next((r for r in state.routes if r.name == trip.route_name), None)
+            if not route:
+                print(f"  {trip.departure_time} - {trip.route_name}: Route not found! Skipping.")
+                reputation_change -= 2
+                continue
+
+            total_distance = sum(stop.distance_from_prev_km for stop in route.stops[1:])
+
+            # Check if bus has enough fuel
+            fuel_needed = total_distance * bus.fuel_efficiency
+            if bus.fuel_level < fuel_needed:
+                print(f"  {trip.departure_time} - {trip.route_name}: ⚠ Insufficient fuel! Trip cancelled.")
+                reputation_change -= 5
+                continue
+
+            ticket_price = 2.50
+            avg_demand = int(total_distance * 10)
+            passengers = min(bus.capacity, random.randint(max(0, avg_demand - 5), avg_demand + 5))
+            earnings = passengers * ticket_price
+
+            fuel_used = bus.consume_fuel(total_distance)
+            fuel_cost = fuel_used * 1.60
+
+            # Random events
+            if random.random() < 0.10:
+                event = random.choice(["minor delay", "passenger incident", "route deviation"])
+                reputation_change -= 1
+            else:
+                reputation_change += 0.5
+
+            board_earnings += earnings
+            board_fuel += fuel_cost
+            trips_completed += 1
+
+            print(f"  {trip.departure_time} - {trip.route_name} to {trip.destination}: {passengers} pax, £{earnings:.2f}")
+
+        total_earnings += board_earnings
+        total_fuel_cost += board_fuel
+
+        print(f"  Board summary: {trips_completed}/{len(board.trips)} trips, £{board_earnings:.2f} income, £{board_fuel:.2f} fuel")
+
+    net_profit = total_earnings - total_fuel_cost
+    state.money += net_profit
+    state.reputation = max(0.0, min(100.0, state.reputation + reputation_change))
+    state.day += 1
+
+    print(f"\n--- Day {state.day-1} Summary ---")
+    print(f"Total fare income: £{total_earnings:.2f}")
+    print(f"Total fuel cost: £{total_fuel_cost:.2f}")
+    print(f"Net profit: £{net_profit:.2f}")
+    print(f"Reputation change: {reputation_change:+.1f}")
+    print(f"New reputation: {state.reputation:.1f}/100")
+    print(f"Money available: £{state.money:.2f}")
+
+def run_day_simulation(state: ManagerState):
+    """Route to appropriate simulation based on mode"""
+    if state.use_running_boards:
+        run_day_simulation_running_boards(state)
+    else:
+        run_day_simulation_static(state)
+
 def buy_new_bus(state: ManagerState):
     # Base game vehicles
     shop = [
@@ -466,7 +662,7 @@ def buy_new_bus(state: ManagerState):
         ("Volvo B7TL Plaxton President", 80, 230.0, 0.39, 130000, None),
         ("Dennis Dart MPD", 35, 140.0, 0.24, 65000, None),
     ]
-    
+
     # Load DLC vehicles
     dlc_vehicles = load_dlc_vehicles()
     for dlc_vehicle in dlc_vehicles:
@@ -525,7 +721,7 @@ def buy_new_bus(state: ManagerState):
 
     bus_id = state.next_bus_id
     state.next_bus_id += 1
-    new_bus = Bus(bus_id, model, capacity, fuel_cap, fuel_cap, efficiency, 
+    new_bus = Bus(bus_id, model, capacity, fuel_cap, fuel_cap, efficiency,
                    purchase_price=price, fleet_number=fleet_number, dlc_source=dlc_source)
     state.fleet.append(new_bus)
     state.money -= price
@@ -623,6 +819,62 @@ def view_company_status(state: ManagerState):
     print(f"Fleet size: {len(state.fleet)} buses")
     print(f"Routes managed: {len(state.routes)}")
 
+    mode = "Running Boards (Dynamic)" if state.use_running_boards else "Static Routes"
+    print(f"Assignment mode: {mode}")
+
+    if state.use_running_boards:
+        boards_count = len(list_running_boards())
+        print(f"Running boards available: {boards_count}")
+
+def running_board_menu(state: ManagerState):
+    """Running board management submenu"""
+    while True:
+        print("\n--- Running Board Management ---")
+        print("1) Create New Running Board")
+        print("2) View Running Boards")
+        print("3) Assign Bus to Running Board")
+        print("4) View Running Board Details")
+        print("5) Delete Running Board")
+        print("6) Return to Main Menu")
+
+        choice = input("> ").strip()
+
+        if choice == "1":
+            create_running_board_interactive(state)
+        elif choice == "2":
+            view_running_boards(state)
+        elif choice == "3":
+            from running_boards import assign_bus_to_running_board
+            assign_bus_to_running_board(state)
+        elif choice == "4":
+            from running_boards import view_running_board_details
+            view_running_board_details(state)
+        elif choice == "5":
+            from running_boards import delete_running_board_interactive
+            delete_running_board_interactive(state)
+        elif choice == "6":
+            break
+        else:
+            print("Invalid option, try again.")
+
+def toggle_assignment_mode(state: ManagerState):
+    """Toggle between static route and running board mode"""
+    current = "Running Boards" if state.use_running_boards else "Static Routes"
+    new_mode = "Static Routes" if state.use_running_boards else "Running Boards"
+
+    print(f"\n--- Toggle Assignment Mode ---")
+    print(f"Current mode: {current}")
+    print(f"Switch to: {new_mode}")
+    print("\nNote: Switching modes will not affect existing assignments,")
+    print("but you'll need to use the appropriate management system for each mode.")
+
+    confirm = input(f"\nSwitch to {new_mode} mode? (y/n): ").strip().lower()
+    if confirm == 'y':
+        state.use_running_boards = not state.use_running_boards
+        print(f"Switched to {new_mode} mode.")
+    else:
+        print("Mode change cancelled.")
+
 def main():
     print("Welcome to City Bus Manager!")
     company_name = input("Please enter your company name (or leave blank to load a game): ").strip()
@@ -666,6 +918,10 @@ def main():
             if loaded:
                 state = loaded
         elif choice == "12":
+            running_board_menu(state)
+        elif choice == "13":
+            toggle_assignment_mode(state)
+        elif choice == "14":
             print(f"Exiting City Bus Manager. Thanks for playing, {state.company_name}!")
             break
         else:
