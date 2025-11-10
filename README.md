@@ -82,6 +82,13 @@ Expand your game with custom vehicle packs! Create JSON files in the `dlcs_and_m
 
 Place your JSON files in `CBMText/dlcs_and_mods/` and they'll automatically load when you start the game!
 
+## 📦 Official & Community DLCs
+
+You can download additional DLC packs here:
+https://drive.google.com/drive/folders/1gSySG89u-Sa8WN7JUTkuF0Upp9qig66G?usp=drive_link
+
+Place any downloaded .json files into your CBMText/dlcs_and_mods/ folder — they’ll load automatically on startup.
+
 ## Game Menu Options
 
 1. View Routes
