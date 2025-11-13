@@ -75,6 +75,7 @@ class Bus:
     purchase_price: float = 0.0
     fleet_number: Optional[str] = None
     dlc_source: Optional[str] = None  # Track which DLC this bus came from
+    livery: str = "Standard"  # New: Bus livery/color scheme
 
     def consume_fuel(self, minutes, speed=30):
         # Convert minutes to distance assuming average speed
@@ -102,6 +103,7 @@ class Bus:
             purchase_price=data.get("purchase_price", 0.0),
             fleet_number=data.get("fleet_number"),
             dlc_source=data.get("dlc_source"),
+            livery=data.get("livery", "Standard"),
         )
 
 @dataclass
@@ -141,6 +143,31 @@ class ManagerState:
             next_bus_id=data.get("next_bus_id", 1),
             use_running_boards=data.get("use_running_boards", False),
         )
+
+
+# Available liveries for buses
+AVAILABLE_LIVERIES = [
+    "Standard",
+    "Red & White",
+    "Blue & Yellow",
+    "Green & Cream",
+    "Silver & Black",
+    "Orange & White",
+    "Purple & Gold",
+    "All-over Red",
+    "All-over Blue",
+    "All-over Green",
+    "Corporate Fleet",
+    "Heritage Classic",
+    "Modern Metro",
+    "Express Service",
+    "Night Service",
+    "Airport Special",
+    "City Centre",
+    "Suburban Route",
+    "Premium Service",
+    "Eco-Friendly Green",
+]
 
 
 def load_dlc_vehicles():
@@ -337,12 +364,14 @@ def view_fleet(state: ManagerState):
             if rb_assignments:
                 assignment_info = f"Running Boards: {', '.join(rb_assignments)}"
 
-            print(f"[{bus.bus_id}] {bus.model}{dlc_tag} (Fleet No: {fn}) | Capacity: {bus.capacity} | Fuel: {bus.fuel_level:.1f}L | Health: {bus.health} | {assignment_info}")
+            print(f"[{bus.bus_id}] {bus.model}{dlc_tag} (Fleet No: {fn}) | Livery: {bus.livery} | Capacity: {bus.capacity} | Fuel: {bus.fuel_level:.1f}L | Health: {bus.health} | {assignment_info}")
 
-        print("\nOptions: [E] Edit Fleet Number, [Q] Return to Main Menu")
+        print("\nOptions: [E] Edit Fleet Number, [L] Change Livery, [Q] Return to Main Menu")
         choice = input("> ").strip().lower()
         if choice == 'e':
             edit_fleet_number(state)
+        elif choice == 'l':
+            change_bus_livery(state)
         elif choice == 'q':
             break
         else:
@@ -388,6 +417,88 @@ def edit_fleet_number(state: ManagerState):
 
     bus.fleet_number = new_number
     print(f"Fleet number updated to '{new_number}' for bus ID {bus.bus_id}.")
+
+def change_bus_livery(state: ManagerState):
+    """Allow player to change the livery of a bus"""
+    if not state.fleet:
+        print("\nNo buses in fleet to edit.")
+        return
+
+    print("\n--- Change Bus Livery ---")
+    print("Current fleet:")
+    for bus in state.fleet:
+        fn = bus.fleet_number if bus.fleet_number else "N/A"
+        print(f"[{bus.bus_id}] {bus.model} (Fleet No: {fn}) - Current Livery: {bus.livery}")
+
+    print("\nEnter bus ID to change livery (or 0 to cancel):")
+    try:
+        bus_id = int(input("> "))
+    except ValueError:
+        print("Invalid input.")
+        return
+
+    if bus_id == 0:
+        print("Livery change cancelled.")
+        return
+
+    bus = next((b for b in state.fleet if b.bus_id == bus_id), None)
+    if not bus:
+        print("Bus ID not found.")
+        return
+
+    print(f"\n--- Available Liveries for {bus.model} (Fleet No: {bus.fleet_number if bus.fleet_number else 'N/A'}) ---")
+    print(f"Current livery: {bus.livery}")
+    print("\nChoose a new livery:")
+    
+    for i, livery in enumerate(AVAILABLE_LIVERIES, 1):
+        current_marker = " (CURRENT)" if livery == bus.livery else ""
+        print(f"[{i}] {livery}{current_marker}")
+
+    print("\nEnter livery number (or 0 to cancel):")
+    try:
+        livery_choice = int(input("> "))
+    except ValueError:
+        print("Invalid input.")
+        return
+
+    if livery_choice == 0:
+        print("Livery change cancelled.")
+        return
+
+    if not (1 <= livery_choice <= len(AVAILABLE_LIVERIES)):
+        print("Invalid livery number.")
+        return
+
+    new_livery = AVAILABLE_LIVERIES[livery_choice - 1]
+    
+    if new_livery == bus.livery:
+        print(f"Bus already has the '{new_livery}' livery.")
+        return
+
+    # Cost to change livery
+    livery_cost = 500.0
+    print(f"\nChanging livery to '{new_livery}' will cost £{livery_cost:.2f}")
+    print(f"Current balance: £{state.money:.2f}")
+    
+    confirm = input("Proceed with livery change? (y/n): ").strip().lower()
+    if confirm != 'y':
+        print("Livery change cancelled.")
+        return
+
+    if state.money < livery_cost:
+        print("You don't have enough money to change the livery!")
+        return
+
+    old_livery = bus.livery
+    bus.livery = new_livery
+    state.money -= livery_cost
+    
+    print(f"\n✓ Livery successfully changed!")
+    print(f"  Bus: {bus.model} (Fleet No: {bus.fleet_number if bus.fleet_number else 'N/A'})")
+    print(f"  Old livery: {old_livery}")
+    print(f"  New livery: {new_livery}")
+    print(f"  Cost: £{livery_cost:.2f}")
+    print(f"  Remaining balance: £{state.money:.2f}")
 
 def assign_bus_to_route(state: ManagerState):
     if state.use_running_boards:
@@ -496,7 +607,7 @@ def run_day_simulation_static(state: ManagerState):
             continue
 
         print(f"\nRoute: {route.name}")
-        print(f"Bus: {bus.model} (Fleet No: {bus.fleet_number if bus.fleet_number else 'N/A'}) (Capacity: {bus.capacity})")
+        print(f"Bus: {bus.model} (Fleet No: {bus.fleet_number if bus.fleet_number else 'N/A'}) [Livery: {bus.livery}] (Capacity: {bus.capacity})")
         print(f"Schedule time: {route.current_schedule_minutes} mins")
 
         total_time = sum(stop.minutes_from_prev for stop in route.stops[1:])
@@ -574,7 +685,7 @@ def run_day_simulation_running_boards(state: ManagerState):
             continue
 
         print(f"\n--- Running Board: {board.name} ---")
-        print(f"Bus: {bus.model} (Fleet No: {bus.fleet_number if bus.fleet_number else 'N/A'})")
+        print(f"Bus: {bus.model} (Fleet No: {bus.fleet_number if bus.fleet_number else 'N/A'}) [Livery: {bus.livery}]")
         print(f"Total trips: {len(board.trips)}")
 
         board_earnings = 0.0
@@ -736,6 +847,7 @@ def buy_new_bus(state: ManagerState):
     state.money -= price
     dlc_msg = f" from {dlc_source}" if dlc_source else ""
     print(f"Congratulations! You bought a new {model}{dlc_msg} with fleet number {fleet_number} for £{price:,}.")
+    print(f"Default livery: {new_bus.livery}")
 
 def add_route(state: ManagerState):
     print("\n--- Add New Route ---")
@@ -941,4 +1053,4 @@ if __name__ == "__main__":
         main()
     except KeyboardInterrupt:
         print("\nExiting City Bus Manager Text Edition")
-        sys.exit(0) 
+        sys.exit(0)
