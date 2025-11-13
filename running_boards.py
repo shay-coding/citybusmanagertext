@@ -49,13 +49,13 @@ class RunningBoard:
             assigned_bus_id=data.get("assigned_bus_id")
         )
 
-    def get_total_distance(self, routes) -> float:
-        """Calculate total distance for all trips in this running board"""
-        total = 0.0
+    def get_total_time(self, routes) -> int:
+        """Calculate total time in minutes for all trips in this running board"""
+        total = 0
         for trip in self.trips:
             route = next((r for r in routes if r.name == trip.route_name), None)
             if route:
-                total += sum(stop.distance_from_prev_km for stop in route.stops[1:])
+                total += sum(stop.minutes_from_prev for stop in route.stops[1:])
         return total
 
     def validate_against_routes(self, routes) -> tuple[bool, str]:
@@ -312,8 +312,8 @@ def view_running_board_details(state):
         route_status = "✓" if route else "✗ (route not found)"
         print(f"  {i}. {trip.departure_time} - {trip.route_name} to {trip.destination} {route_status}")
 
-    total_distance = board.get_total_distance(state.routes)
-    print(f"\nEstimated total distance: {total_distance:.1f} km")
+    total_time = board.get_total_time(state.routes)
+    print(f"\nEstimated total travel time: {total_time} minutes")
 
     valid, error = board.validate_against_routes(state.routes)
     if not valid:
