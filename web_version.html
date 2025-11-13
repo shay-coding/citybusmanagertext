@@ -106,31 +106,44 @@ async function preloadFolders() {
   }
 }
 
-// Preload all Python modules properly for import
+// Preload all Python modules properly
 async function preloadModules() {
-  const modules = [
-    { path: 'running_boards.py', folder: '/' },
-    { path: 'game.py', folder: '/' }
-  ];
-  
-  for (const file of modules) {
-    try {
-      const resp = await fetch(file.path);
+  try {
+    // Load single Python files
+    const singleFiles = ['running_boards.py', 'game.py'];
+    for (const file of singleFiles) {
+      const resp = await fetch(file);
       const code = await resp.text();
-      
-      // Make sure folder exists
-      try { await pyodide.FS.mkdir(file.folder); } catch {}
-      
-      // Write file into Pyodide FS
-      pyodide.FS.writeFile(file.path, code);
-      
-      // Add folder to sys.path so Python can import
-      pyodide.runPython(`import sys; sys.path.append("${file.folder}")`);
-      
-      addMessage(`${file.path} loaded successfully.`, 'bot');
-    } catch(e) {
-      addMessage(`Failed to load ${file.path}: ${e}`, 'bot');
+      pyodide.FS.writeFile(file, code);
+      addMessage(`${file} loaded successfully.`, 'bot');
     }
+
+    // Load running_boards folder modules
+    const folder = 'running_boards';
+    try { await pyodide.FS.mkdir(folder); } catch {}
+    
+    // Create __init__.py so Python treats folder as package
+    try { pyodide.FS.writeFile(`${folder}/__init__.py`, ''); } catch {}
+
+    // List all files in running_boards folder (replace with actual files you need)
+    const folderFiles = ['module1.py', 'module2.py']; // <-- replace with your actual files
+
+    for (const f of folderFiles) {
+      const resp = await fetch(`${folder}/${f}`);
+      const code = await resp.text();
+      pyodide.FS.writeFile(`${folder}/${f}`, code);
+      addMessage(`Folder file ${f} loaded successfully.`, 'bot');
+    }
+
+    // Add both root and folder to sys.path
+    pyodide.runPython(`
+import sys
+sys.path.append('/')
+sys.path.append('/running_boards')
+    `);
+
+  } catch(e) {
+    addMessage(`Failed to load modules: ${e}`, 'bot');
   }
 }
 
