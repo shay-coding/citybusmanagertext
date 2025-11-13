@@ -19,14 +19,20 @@ from running_boards import (
 @dataclass
 class Stop:
     name: str
-    distance_from_prev_km: float
+    minutes_from_prev: int  # Changed from distance_from_prev_km
 
     def to_dict(self):
         return asdict(self)
 
     @staticmethod
     def from_dict(data):
-        return Stop(name=data["name"], distance_from_prev_km=data["distance_from_prev_km"])
+        # Support both old and new format for backwards compatibility
+        if "minutes_from_prev" in data:
+            return Stop(name=data["name"], minutes_from_prev=data["minutes_from_prev"])
+        else:
+            # Convert old km data to minutes (assuming avg speed of 30 km/h)
+            minutes = int(data.get("distance_from_prev_km", 0) * 2)
+            return Stop(name=data["name"], minutes_from_prev=minutes)
 
 @dataclass
 class Route:
@@ -70,7 +76,9 @@ class Bus:
     fleet_number: Optional[str] = None
     dlc_source: Optional[str] = None  # Track which DLC this bus came from
 
-    def consume_fuel(self, distance, speed=50):
+    def consume_fuel(self, minutes, speed=30):
+        # Convert minutes to distance assuming average speed
+        distance = (minutes / 60) * speed
         speed_factor = speed / 50
         used = distance * self.fuel_efficiency * speed_factor
         self.fuel_level = max(self.fuel_level - used, 0)
@@ -303,8 +311,8 @@ def view_routes(state: ManagerState):
     print("\n--- Routes ---")
     for i, route in enumerate(state.routes, 1):
         assigned_bus = next((b.model for b in state.fleet if b.bus_id == route.assigned_bus_id), "None")
-        total_distance = sum(stop.distance_from_prev_km for stop in route.stops[1:])
-        print(f"[{i}] {route.name} | Distance: {total_distance:.1f}km | Schedule: {route.current_schedule_minutes} mins | Bus: {assigned_bus}")
+        total_time = sum(stop.minutes_from_prev for stop in route.stops[1:])
+        print(f"[{i}] {route.name} | Journey Time: {total_time} mins | Schedule: {route.current_schedule_minutes} mins | Bus: {assigned_bus}")
 
 def view_fleet(state: ManagerState):
     if not state.fleet:
@@ -491,14 +499,15 @@ def run_day_simulation_static(state: ManagerState):
         print(f"Bus: {bus.model} (Fleet No: {bus.fleet_number if bus.fleet_number else 'N/A'}) (Capacity: {bus.capacity})")
         print(f"Schedule time: {route.current_schedule_minutes} mins")
 
-        total_distance = sum(stop.distance_from_prev_km for stop in route.stops[1:])
+        total_time = sum(stop.minutes_from_prev for stop in route.stops[1:])
         ticket_price = 2.50
 
-        avg_demand = int(total_distance * 10)
+        # Base demand on route length (more stops/time = more passengers)
+        avg_demand = int(total_time * 1.5)
         passengers = min(bus.capacity, random.randint(max(0, avg_demand - 5), avg_demand + 5))
         earnings = passengers * ticket_price
 
-        fuel_used = bus.consume_fuel(total_distance)
+        fuel_used = bus.consume_fuel(total_time)
         fuel_cost = fuel_used * 1.60
 
         if random.random() < 0.15:
@@ -579,21 +588,21 @@ def run_day_simulation_running_boards(state: ManagerState):
                 reputation_change -= 2
                 continue
 
-            total_distance = sum(stop.distance_from_prev_km for stop in route.stops[1:])
+            total_time = sum(stop.minutes_from_prev for stop in route.stops[1:])
 
             # Check if bus has enough fuel
-            fuel_needed = total_distance * bus.fuel_efficiency
+            fuel_needed = total_time / 60 * 30 * bus.fuel_efficiency  # Estimate based on time
             if bus.fuel_level < fuel_needed:
                 print(f"  {trip.departure_time} - {trip.route_name}: ⚠ Insufficient fuel! Trip cancelled.")
                 reputation_change -= 5
                 continue
 
             ticket_price = 2.50
-            avg_demand = int(total_distance * 10)
+            avg_demand = int(total_time * 1.5)
             passengers = min(bus.capacity, random.randint(max(0, avg_demand - 5), avg_demand + 5))
             earnings = passengers * ticket_price
 
-            fuel_used = bus.consume_fuel(total_distance)
+            fuel_used = bus.consume_fuel(total_time)
             fuel_cost = fuel_used * 1.60
 
             # Random events
@@ -737,7 +746,6 @@ def add_route(state: ManagerState):
 
     print("Enter stops for the route. Type 'done' when finished.")
     stops = []
-    prev_distance = 0.0
     while True:
         stop_name = input("Stop name (or 'done'): ").strip()
         if stop_name.lower() == "done":
@@ -747,15 +755,15 @@ def add_route(state: ManagerState):
             continue
         while True:
             try:
-                dist = float(input(f"Distance from previous stop to {stop_name} in km: "))
-                if dist < 0:
-                    print("Distance cannot be negative.")
+                minutes = int(input(f"Travel time from previous stop to {stop_name} in minutes: "))
+                if minutes < 0:
+                    print("Time cannot be negative.")
                     continue
                 break
             except ValueError:
                 print("Please enter a valid number.")
 
-        stops.append(Stop(stop_name, dist))
+        stops.append(Stop(stop_name, minutes))
 
     if len(stops) < 2:
         print("A route must have at least two stops.")
@@ -772,13 +780,14 @@ def add_route(state: ManagerState):
         print("You don't have enough money to create this route.")
         return
 
-    total_distance = sum(stop.distance_from_prev_km for stop in stops[1:])
-    base_schedule = max(int(total_distance / 30 * 60), 10)
+    total_time = sum(stop.minutes_from_prev for stop in stops[1:])
+    # Add buffer time for base schedule (20% extra for layover/turnaround)
+    base_schedule = int(total_time * 1.2)
 
     new_route = Route(name, stops, base_schedule, base_schedule)
     state.routes.append(new_route)
     state.money -= cost
-    print(f"Route '{name}' created with {len(stops)} stops, costing £{cost}.")
+    print(f"Route '{name}' created with {len(stops)} stops, total journey time {total_time} mins, costing £{cost}.")
 
 def delete_route(state: ManagerState):
     if not state.routes:
@@ -932,4 +941,4 @@ if __name__ == "__main__":
         main()
     except KeyboardInterrupt:
         print("\nExiting City Bus Manager Text Edition")
-        sys.exit(0)
+        sys.exit(0) 
