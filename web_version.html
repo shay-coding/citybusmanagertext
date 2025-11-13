@@ -77,6 +77,7 @@ const sendBtn = document.getElementById('send');
 
 let pyodide = null;
 
+// Add a message to the chat
 function addMessage(text, sender) {
   const div = document.createElement('div');
   div.className = `msg ${sender}`;
@@ -85,7 +86,7 @@ function addMessage(text, sender) {
   chat.scrollTop = chat.scrollHeight;
 }
 
-// Redirect Python print() to chat
+// Redirect Python print() to the chat
 function setupPrintHook() {
   pyodide.runPython(`
 import sys
@@ -106,33 +107,30 @@ async function preloadFolders() {
   }
 }
 
-// Preload all Python modules properly
+// Preload all Python modules
 async function preloadModules() {
   try {
-    // Load single Python files
+    // Single files
     const singleFiles = ['running_boards.py', 'game.py'];
     for (const file of singleFiles) {
       const resp = await fetch(file);
       const code = await resp.text();
       pyodide.FS.writeFile(file, code);
-      addMessage(`${file} loaded successfully.`, 'bot');
+      // Commented out: addMessage(`${file} loaded successfully.`, 'bot');
     }
 
-    // Load running_boards folder modules
+    // running_boards folder
     const folder = 'running_boards';
     try { await pyodide.FS.mkdir(folder); } catch {}
-    
-    // Create __init__.py so Python treats folder as package
     try { pyodide.FS.writeFile(`${folder}/__init__.py`, ''); } catch {}
 
-    // List all files in running_boards folder (replace with actual files you need)
+    // List files inside running_boards folder (replace with actual files)
     const folderFiles = ['module1.py', 'module2.py']; // <-- replace with your actual files
-
     for (const f of folderFiles) {
       const resp = await fetch(`${folder}/${f}`);
       const code = await resp.text();
       pyodide.FS.writeFile(`${folder}/${f}`, code);
-      addMessage(`Folder file ${f} loaded successfully.`, 'bot');
+      // Commented out: addMessage(`Folder file ${f} loaded successfully.`, 'bot');
     }
 
     // Add both root and folder to sys.path
@@ -147,6 +145,7 @@ sys.path.append('/running_boards')
   }
 }
 
+// Initialize Python and start the game
 async function initPython() {
   addMessage("City Bus Manager - Text Version", "bot");
   addMessage("Loading Python environment...", "bot");
@@ -154,12 +153,20 @@ async function initPython() {
   pyodide = await loadPyodide();
   setupPrintHook();
   await preloadFolders();
-  addMessage("Folders ready.", "bot");
+  // addMessage("Folders ready.", "bot"); // hidden
 
   await preloadModules();
-  addMessage("All Python modules loaded. Game ready!", "bot");
+  addMessage("All Python modules loaded. Starting game...", "bot");
+
+  // Start the game
+  try {
+    await pyodide.runPythonAsync(`start_game()`);
+  } catch (err) {
+    addMessage(`Failed to start game: ${err}`, 'bot');
+  }
 }
 
+// Send user command to Python
 async function sendCommand() {
   const cmd = input.value.trim();
   if (!cmd) return;
