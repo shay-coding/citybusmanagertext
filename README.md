@@ -97,43 +97,6 @@ To install DLCs or mods:
 6. **Manage Fleet Numbers**: Organize your fleet with custom numbering
 7. **Save Progress**: Save your game anytime to continue later
 
-## Creating DLC Vehicle Packs
-
-Expand your game with custom vehicle packs! Create JSON files in the `dlcs_and_mods/` folder:
-
-### Example DLC Structure
-```json
-{
-  "dlc_name": "Vintage Pack",
-  "vehicles": [
-    {
-      "model": "Routemaster RM",
-      "capacity": 64,
-      "fuel_capacity": 140.0,
-      "fuel_efficiency": 0.45,
-      "price": 85000
-    },
-    {
-      "model": "AEC Regent III RT",
-      "capacity": 56,
-      "fuel_capacity": 130.0,
-      "fuel_efficiency": 0.50,
-      "price": 75000
-    }
-  ]
-}
-```
-
-### DLC Field Reference
-- **dlc_name**: Name of your DLC pack (appears in-game)
-- **model**: Bus model name
-- **capacity**: Passenger capacity
-- **fuel_capacity**: Fuel tank size in litres
-- **fuel_efficiency**: Litres per km at 50 km/h (lower is better)
-- **price**: Purchase price in pounds
-
-Place your JSON files in `CBMText/dlcs_and_mods/` and they'll automatically load when you start the game!
-
 ## 📦 Official & Community DLCs
 
 You can download additional DLC packs here:
