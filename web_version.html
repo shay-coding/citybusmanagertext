@@ -56,10 +56,8 @@
     font-size: 16px;
     margin-left: 8px;
   }
-
-  /* Optional: scroll chat up when keyboard appears on mobile */
   @media (max-width: 768px) {
-    #chat { padding-bottom: 80px; } /* extra padding so last messages aren’t hidden behind keyboard */
+    #chat { padding-bottom: 80px; }
   }
 </style>
 </head>
@@ -100,7 +98,7 @@ sys.stdout = sys.stderr = ChatRedirect()
   `);
 }
 
-// Preload folders in Pyodide FS
+// Preload folders
 async function preloadFolders() {
   const folders = ['dlcs_and_mods', 'running_boards', 'saves'];
   for (const folder of folders) {
@@ -108,14 +106,15 @@ async function preloadFolders() {
   }
 }
 
-// Preload all Python modules
+// Preload all Python modules in the correct order
 async function preloadModules() {
-  const modules = ['running_boards.py','game.py']; // Add more .py files here if needed
+  const modules = ['running_boards.py','game.py']; // Add more modules if needed
   for (const file of modules) {
     try {
       const resp = await fetch(file);
       const code = await resp.text();
       await pyodide.runPython(code);
+      addMessage(`${file} loaded successfully.`, 'bot');
     } catch(e) {
       addMessage(`Failed to load ${file}: ${e}`, 'bot');
     }
@@ -132,7 +131,7 @@ async function initPython() {
   addMessage("Folders ready.", "bot");
 
   await preloadModules();
-  addMessage("All modules loaded. Game ready!", "bot");
+  addMessage("All Python modules loaded. Game ready!", "bot");
 }
 
 async function sendCommand() {
@@ -151,12 +150,9 @@ async function sendCommand() {
 input.addEventListener('keydown', e => { if(e.key==='Enter') sendCommand(); });
 sendBtn.addEventListener('click', sendCommand);
 
-// Expose addMessage for Python print hook
 window.addMessage = addMessage;
 
-// Start Python and preload everything immediately
 initPython();
-
 </script>
 </body>
 </html>
