@@ -106,17 +106,30 @@ async function preloadFolders() {
   }
 }
 
-// Preload all Python modules in the correct order
+// Preload all Python modules properly for import
 async function preloadModules() {
-  const modules = ['running_boards.py','game.py']; // Add more modules if needed
+  const modules = [
+    { path: 'running_boards.py', folder: '/' },
+    { path: 'game.py', folder: '/' }
+  ];
+  
   for (const file of modules) {
     try {
-      const resp = await fetch(file);
+      const resp = await fetch(file.path);
       const code = await resp.text();
-      await pyodide.runPython(code);
-      addMessage(`${file} loaded successfully.`, 'bot');
+      
+      // Make sure folder exists
+      try { await pyodide.FS.mkdir(file.folder); } catch {}
+      
+      // Write file into Pyodide FS
+      pyodide.FS.writeFile(file.path, code);
+      
+      // Add folder to sys.path so Python can import
+      pyodide.runPython(`import sys; sys.path.append("${file.folder}")`);
+      
+      addMessage(`${file.path} loaded successfully.`, 'bot');
     } catch(e) {
-      addMessage(`Failed to load ${file}: ${e}`, 'bot');
+      addMessage(`Failed to load ${file.path}: ${e}`, 'bot');
     }
   }
 }
