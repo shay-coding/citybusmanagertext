@@ -31,7 +31,7 @@ Follow these steps to install and run **City Bus Manager Text** on your computer
 
 ## 1️⃣ Download the Game
 
-Download the Zipped File [here](https://drive.google.com/file/d/13-nQkOcsh9Gfk7OHI-PUS8e6fnSDk0rx/view?usp=drive_link) and then unzip the file
+Download the Zipped File [here](https://drive.google.com/file/d/1u2hO1iZu0Q_LUXmxp_0kkKNmQMZQ9gmc/view?usp=drive_link) and then unzip the file
 
 ## 3️⃣ Install Python
 
