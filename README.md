@@ -72,7 +72,7 @@ python3 game.py
 ```
 
 **📱 Mobile (Currently Android Only)**
-1. [Install Termux Here](https://play.google.com/store/apps/details?id=com.termux&pcampaignid=web_share)
+1. [Install Termux Here](https://f-droid.org/F-Droid.apk)
 2. Open Termux and run the following line to allow access to files
   ```bash
 termux-setup-storage
