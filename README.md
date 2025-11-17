@@ -73,15 +73,16 @@ python3 game.py
 
 **📱 Mobile (Currently Android Only)**
 1. [Install Termux Here](https://f-droid.org/F-Droid.apk)
-2. Open Termux and run the following line to allow access to files
+2. Click on the installed notification and allow it to be installed (NOTE: This is safe to install, but only if you use the link provided in this guide)
+3. Open Termux and run the following line to allow access to files
   ```bash
 termux-setup-storage
 ```
-3. Go to your gane folder
+4. Go to your game folder
   ```bash
 cd storage/shared/Download/CBMText_V1.1.2
 ```
-4. Run the game with
+5. Run the game with
 ```bash
 python3 game.py
 ```
