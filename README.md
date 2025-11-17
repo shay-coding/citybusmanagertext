@@ -71,7 +71,7 @@ cd /path/to/CBMText
 python3 game.py
 ```
 
-**📱 Mobile (Android Only)**
+**📱 Mobile (Currently Android Only)**
 1. [Install Termux Here](https://play.google.com/store/apps/details?id=com.termux&pcampaignid=web_share)
 2. Open Termux and run the following line to allow access to files
   ```bash
