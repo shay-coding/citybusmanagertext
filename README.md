@@ -71,6 +71,21 @@ cd /path/to/CBMText
 python3 game.py
 ```
 
+**📱 Mobile (Android Only)**
+1. [Install Termux Here](https://play.google.com/store/apps/details?id=com.termux&pcampaignid=web_share)
+2. Open Termux and run the following line to allow access to files
+  ```bash
+termux-setup-storage
+```
+3. Go to your gane folder
+  ```bash
+cd storage/shared/Download/CBMText_V1.1.2
+```
+4. Run the game with
+```bash
+python3 game.py
+```
+
 💬 **Troubleshooting:** If you get a "python not found" error, try using `py` instead of `python`.
 
 ## 5️⃣ (Optional) Add DLC Packs
