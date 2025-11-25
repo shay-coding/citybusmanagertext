@@ -144,6 +144,9 @@ Place any downloaded .json files into your CBMText/dlcs_and_mods/ folder — the
 - Random events can occur during daily operations affecting finances and reputation
 
 ## Version History
+**v1.1.1** - Bug Fixes
+- Bug fixes with the running board mode
+- Changing from distance in kilometers to distance in minutes between stops
 
 **v1.1** - DLC Support & Fleet Numbers
 - Added DLC/mod support for custom vehicle packs
