@@ -73,7 +73,7 @@ python3 game.py
 
 **📱 Mobile (Currently Android Only)**
 1. [Install Termux Here](https://f-droid.org/F-Droid.apk)
-2. Click on the installed notification and allow it to be installed (NOTE: This is safe to install, but only if you use the link provided in this guide)
+2. Click on the installed notification and allow it to be installed (NOTE: This is safe to install, but only if you use the link provided within this guide)
 3. Open Termux and run the following line to allow access to files
   ```bash
 termux-setup-storage
