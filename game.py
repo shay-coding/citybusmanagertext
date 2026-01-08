@@ -3,6 +3,7 @@ import sys
 import json
 import os
 import glob
+import csv
 from dataclasses import dataclass, field, asdict
 from typing import List, Optional
 
@@ -116,6 +117,7 @@ class ManagerState:
     day: int = 1
     next_bus_id: int = 1
     use_running_boards: bool = False  # Toggle between static and dynamic assignment
+    fuel_price: float = 1.60  # Dynamic fuel price per litre (min 1.25, max 2.00)
 
     def to_dict(self):
         return {
@@ -127,6 +129,7 @@ class ManagerState:
             "day": self.day,
             "next_bus_id": self.next_bus_id,
             "use_running_boards": self.use_running_boards,
+            "fuel_price": self.fuel_price,
         }
 
     @staticmethod
@@ -142,12 +145,12 @@ class ManagerState:
             day=data["day"],
             next_bus_id=data.get("next_bus_id", 1),
             use_running_boards=data.get("use_running_boards", False),
+            fuel_price=data.get("fuel_price", 1.60),
         )
 
 
 # Available liveries for buses
 AVAILABLE_LIVERIES = [
-    "Standard",
     "Red & White",
     "Blue & Yellow",
     "Green & Cream",
@@ -314,9 +317,37 @@ def load_game() -> Optional[ManagerState]:
     return None
 
 
+def update_fuel_price(state: ManagerState):
+    """Update fuel price dynamically with random fluctuations"""
+    # Random fluctuation between -0.05 and +0.05
+    fluctuation = random.uniform(-0.05, 0.05)
+    new_price = state.fuel_price + fluctuation
+    
+    # Clamp price between min (1.25) and max (2.00)
+    state.fuel_price = max(1.25, min(2.00, new_price))
+
+
+def view_fuel_price(state: ManagerState):
+    """Display current fuel price and price history"""
+    print(f"\n--- Current Fuel Price ---")
+    print(f"Price per litre: £{state.fuel_price:.2f}")
+    print(f"Min price: £1.25")
+    print(f"Max price: £2.00")
+    
+    # Show color indication
+    if state.fuel_price <= 1.40:
+        status = "🟢 LOW (Good buying opportunity!)"
+    elif state.fuel_price <= 1.70:
+        status = "🟡 MEDIUM (Average)"
+    else:
+        status = "🔴 HIGH (Consider waiting)"
+    print(f"Status: {status}")
+
+
 def print_main_menu(state: ManagerState):
     mode = "Running Boards" if state.use_running_boards else "Static Routes"
     print(f"\n===== City Bus Manager – {state.company_name} [Mode: {mode}] =====")
+    print(f"Fuel Price: £{state.fuel_price:.2f}/L")
     print("1) View Routes")
     print("2) View Fleet")
     print("3) Assign Bus to Route")
@@ -326,11 +357,12 @@ def print_main_menu(state: ManagerState):
     print("7) Add New Route (Costs £500 per stop)")
     print("8) Delete Route")
     print("9) View Company Status")
-    print("10) Save Game")
-    print("11) Load Game")
-    print("12) Running Board Management")
-    print("13) Toggle Assignment Mode")
-    print("14) Quit")
+    print("10) View Fuel Price Details")
+    print("11) Save Game")
+    print("12) Load Game")
+    print("13) Running Board Management")
+    print("14) Toggle Assignment Mode")
+    print("15) Quit")
 
 def view_routes(state: ManagerState):
     if not state.routes:
@@ -620,19 +652,19 @@ def run_day_simulation_static(state: ManagerState):
         earnings = passengers * ticket_price
 
         fuel_used = bus.consume_fuel(total_time)
-        fuel_cost = fuel_used * 1.60
+        fuel_cost = fuel_used * state.fuel_price
 
-        if random.random() < 0.15:
+        if random.random() < 0.2:
             event = random.choice(["flat tyre", "engine trouble", "heavy traffic"])
-            print(f"** Event: {event}! Delays the route and costs £20 to fix. **")
+            print(f"** Event: {event}! Delays the route and costs £200 to fix. **")
             reputation_change -= 3
-            state.money -= 20
+            state.money -= 200
         else:
             reputation_change += 1
 
         if route.current_schedule_minutes < route.base_schedule_minutes:
             if random.random() < 0.3:
-                print("Tight schedule caused delays and unhappy passengers!")
+                print("Tight schedule caused delays and made passengers unhappy!")
                 reputation_change -= 2
             else:
                 reputation_change += 1
@@ -649,6 +681,10 @@ def run_day_simulation_static(state: ManagerState):
     net_profit = total_earnings - total_fuel_cost
     state.money += net_profit
     state.reputation = max(0.0, min(100.0, state.reputation + reputation_change))
+    
+    # Update fuel price for next day
+    update_fuel_price(state)
+    
     state.day += 1
 
     print(f"\nDay {state.day-1} summary:")
@@ -657,6 +693,7 @@ def run_day_simulation_static(state: ManagerState):
     print(f"Net profit: £{net_profit:.2f}")
     print(f"Reputation change: {reputation_change:+.1f}")
     print(f"New reputation: {state.reputation:.1f}/100")
+    print(f"Fuel price for Day {state.day}: £{state.fuel_price:.2f}/L")
     print(f"Money available: £{state.money:.2f}")
 
 def run_day_simulation_running_boards(state: ManagerState):
@@ -715,7 +752,7 @@ def run_day_simulation_running_boards(state: ManagerState):
             earnings = passengers * ticket_price
 
             fuel_used = bus.consume_fuel(total_time)
-            fuel_cost = fuel_used * 1.60
+            fuel_cost = fuel_used * state.fuel_price
 
             # Random events
             if random.random() < 0.10:
@@ -738,6 +775,10 @@ def run_day_simulation_running_boards(state: ManagerState):
     net_profit = total_earnings - total_fuel_cost
     state.money += net_profit
     state.reputation = max(0.0, min(100.0, state.reputation + reputation_change))
+    
+    # Update fuel price for next day
+    update_fuel_price(state)
+    
     state.day += 1
 
     print(f"\n--- Day {state.day-1} Summary ---")
@@ -746,6 +787,7 @@ def run_day_simulation_running_boards(state: ManagerState):
     print(f"Net profit: £{net_profit:.2f}")
     print(f"Reputation change: {reputation_change:+.1f}")
     print(f"New reputation: {state.reputation:.1f}/100")
+    print(f"Fuel price for Day {state.day}: £{state.fuel_price:.2f}/L")
     print(f"Money available: £{state.money:.2f}")
 
 def run_day_simulation(state: ManagerState):
@@ -1033,16 +1075,18 @@ def main():
         elif choice == "9":
             view_company_status(state)
         elif choice == "10":
-            save_game(state)
+            view_fuel_price(state)
         elif choice == "11":
+            save_game(state)
+        elif choice == "12":
             loaded = load_game()
             if loaded:
                 state = loaded
-        elif choice == "12":
-            running_board_menu(state)
         elif choice == "13":
-            toggle_assignment_mode(state)
+            running_board_menu(state)
         elif choice == "14":
+            toggle_assignment_mode(state)
+        elif choice == "15":
             print(f"Exiting City Bus Manager. Thanks for playing, {state.company_name}!")
             break
         else:
