@@ -331,8 +331,6 @@ def view_fuel_price(state: ManagerState):
     """Display current fuel price and price history"""
     print(f"\n--- Current Fuel Price ---")
     print(f"Price per litre: £{state.fuel_price:.2f}")
-    print(f"Min price: £1.25")
-    print(f"Max price: £2.00")
     
     # Show color indication
     if state.fuel_price <= 1.40:
