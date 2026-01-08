@@ -352,15 +352,16 @@ def print_main_menu(state: ManagerState):
     print("4) Change Route Schedule")
     print("5) Run Day Simulation")
     print("6) Buy New Bus")
-    print("7) Add New Route (Costs £500 per stop)")
-    print("8) Delete Route")
-    print("9) View Company Status")
-    print("10) View Fuel Price Details")
-    print("11) Save Game")
-    print("12) Load Game")
-    print("13) Running Board Management")
-    print("14) Toggle Assignment Mode")
-    print("15) Quit")
+    print("7) Import Fleet from CSV")
+    print("8) Add New Route (Costs £500 per stop)")
+    print("9) Delete Route")
+    print("10) View Company Status")
+    print("11) View Fuel Price Details")
+    print("12) Save Game")
+    print("13) Load Game")
+    print("14) Running Board Management")
+    print("15) Toggle Assignment Mode")
+    print("16) Quit")
 
 def view_routes(state: ManagerState):
     if not state.routes:
@@ -795,6 +796,125 @@ def run_day_simulation(state: ManagerState):
     else:
         run_day_simulation_static(state)
 
+def import_fleet_from_csv(state: ManagerState):
+    """Import buses from a CSV file"""
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    print("\n--- Import Fleet from CSV ---")
+    print("Place your CSV file in the CBMText folder.")
+    print("CSV format should have headers: model,capacity,fuel_capacity,fuel_efficiency,purchase_price,fleet_number,livery")
+    print("\nExample:")
+    print("model,capacity,fuel_capacity,fuel_efficiency,purchase_price,fleet_number,livery")
+    print("ADL Enviro200,40,160.0,0.26,90000,FL-001,Red & White")
+    
+    filename = input("\nEnter CSV filename (or 0 to cancel): ").strip()
+    
+    if filename == "0":
+        print("Import cancelled.")
+        return
+    
+    if not filename.endswith('.csv'):
+        filename += '.csv'
+    
+    filepath = os.path.join(script_dir, filename)
+    
+    if not os.path.exists(filepath):
+        print(f"File '{filename}' not found in {script_dir}")
+        return
+    
+    try:
+        imported_count = 0
+        skipped_count = 0
+        total_cost = 0.0
+        
+        with open(filepath, 'r') as f:
+            reader = csv.DictReader(f)
+            
+            if not reader.fieldnames:
+                print("CSV file is empty.")
+                return
+            
+            required_fields = {'model', 'capacity', 'fuel_capacity', 'fuel_efficiency'}
+            
+            # Check required fields exist
+            if not required_fields.issubset(set(reader.fieldnames)):
+                print(f"CSV must contain columns: {', '.join(required_fields)}")
+                return
+            
+            for row_num, row in enumerate(reader, start=2):  # start=2 because row 1 is header
+                try:
+                    model = row.get('model', '').strip()
+                    capacity = int(row.get('capacity', 0))
+                    fuel_capacity = float(row.get('fuel_capacity', 0))
+                    fuel_efficiency = float(row.get('fuel_efficiency', 0))
+                    purchase_price = float(row.get('purchase_price', 0))
+                    fleet_number = row.get('fleet_number', '').strip()
+                    livery = row.get('livery', 'Standard').strip()
+                    
+                    # Validate required data
+                    if not model or capacity <= 0 or fuel_capacity <= 0 or fuel_efficiency <= 0:
+                        print(f"Row {row_num}: Skipping - missing or invalid required fields")
+                        skipped_count += 1
+                        continue
+                    
+                    # Check if fleet number already exists
+                    if fleet_number and any(bus.fleet_number == fleet_number for bus in state.fleet):
+                        print(f"Row {row_num}: Skipping '{model}' - fleet number {fleet_number} already in use")
+                        skipped_count += 1
+                        continue
+                    
+                    # Auto-assign fleet number if not provided
+                    if not fleet_number:
+                        existing_numbers = {bus.fleet_number for bus in state.fleet if bus.fleet_number}
+                        n = 1
+                        while str(n) in existing_numbers:
+                            n += 1
+                        fleet_number = str(n)
+                    
+                    # Validate livery
+                    if livery not in AVAILABLE_LIVERIES:
+                        livery = "Standard"
+                    
+                    # Create bus
+                    bus_id = state.next_bus_id
+                    state.next_bus_id += 1
+                    new_bus = Bus(
+                        bus_id=bus_id,
+                        model=model,
+                        capacity=capacity,
+                        fuel_capacity=fuel_capacity,
+                        fuel_level=fuel_capacity,  # Start with full tank
+                        fuel_efficiency=fuel_efficiency,
+                        purchase_price=purchase_price,
+                        fleet_number=fleet_number,
+                        livery=livery
+                    )
+                    state.fleet.append(new_bus)
+                    total_cost += purchase_price
+                    imported_count += 1
+                    
+                except (ValueError, KeyError) as e:
+                    print(f"Row {row_num}: Skipping - error processing row: {e}")
+                    skipped_count += 1
+                    continue
+        
+        print(f"\n--- Import Complete ---")
+        print(f"✓ Imported: {imported_count} buses")
+        print(f"⚠ Skipped: {skipped_count} buses")
+        print(f"Total cost: £{total_cost:,.2f}")
+        
+        if total_cost > 0:
+            if state.money >= total_cost:
+                state.money -= total_cost
+                print(f"✓ Payment processed. Balance: £{state.money:,.2f}")
+            else:
+                print(f"⚠ Warning: Insufficient funds! You need £{total_cost:,.2f} but only have £{state.money:,.2f}")
+                print("Buses were added but payment was not deducted.")
+    
+    except Exception as e:
+        print(f"Error reading CSV file: {e}")
+
+
 def buy_new_bus(state: ManagerState):
     # Base game vehicles
     shop = [
@@ -1067,24 +1187,26 @@ def main():
         elif choice == "6":
             buy_new_bus(state)
         elif choice == "7":
-            add_route(state)
+            import_fleet_from_csv(state)
         elif choice == "8":
-            delete_route(state)
+            add_route(state)
         elif choice == "9":
-            view_company_status(state)
+            delete_route(state)
         elif choice == "10":
-            view_fuel_price(state)
+            view_company_status(state)
         elif choice == "11":
-            save_game(state)
+            view_fuel_price(state)
         elif choice == "12":
+            save_game(state)
+        elif choice == "13":
             loaded = load_game()
             if loaded:
                 state = loaded
-        elif choice == "13":
-            running_board_menu(state)
         elif choice == "14":
-            toggle_assignment_mode(state)
+            running_board_menu(state)
         elif choice == "15":
+            toggle_assignment_mode(state)
+        elif choice == "16":
             print(f"Exiting City Bus Manager. Thanks for playing, {state.company_name}!")
             break
         else:
