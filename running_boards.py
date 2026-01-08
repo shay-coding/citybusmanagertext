@@ -284,6 +284,16 @@ def view_running_boards(state):
 
 def view_running_board_details(state):
     """View detailed information about a specific running board"""
+    available_boards = list_running_boards()
+    
+    if not available_boards:
+        print("\nNo running boards available.")
+        return
+    
+    print("\nAvailable running boards:")
+    for board_name in available_boards:
+        print(f"  - {board_name}")
+    
     board_name = input("\nEnter running board name to view: ").strip()
     if not board_name:
         return
