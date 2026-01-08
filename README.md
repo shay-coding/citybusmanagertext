@@ -18,6 +18,7 @@ Manage your bus fleet, create routes, assign buses, and run daily operations to 
 - **Company Growth**: Buy new buses and expand your route network
 - **Save/Load System**: Save your progress and continue anytime
 - **DLC & Mod Support**: Extend the game with custom vehicle packs via JSON files
+- **Import fleet via CSV**: Mass import fleets using CSV files. (layout: model,capacity,fuel_capacity,fuel_efficiency,purchase_price,fleet_number,livery)
 
 ## Requirements
 
