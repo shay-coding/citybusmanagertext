@@ -1,0 +1,8 @@
+model,capacity,fuel_capacity,fuel_efficiency,purchase_price,fleet_number,livery
+ADL Enviro200,40,160.0,0.26,90000,FL-001,Red & White
+ADL Enviro200 MMC,40,160.0,0.25,95000,FL-002,Blue & Yellow
+Wright Streetlite DF,40,150.0,0.25,72000,FL-003,Green & Cream
+Wright Eclipse Urban,40,150.0,0.26,70000,FL-004,Silver & Black
+Scania N270UD Omnicity,80,230.0,0.38,140000,FL-005,Orange & White
+Dennis Dart MPD,35,140.0,0.24,65000,FL-006,Purple & Gold
+Optare Solo SR,30,120.0,0.22,62000,,All-over White
