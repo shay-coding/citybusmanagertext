@@ -14,7 +14,11 @@ from running_boards import (
     view_running_boards,
     list_running_boards,
     load_running_board,
-    save_running_board
+    save_running_board,
+    create_running_boards_from_csv,
+    create_running_boards_batch,
+    view_running_board_logs,
+    log_running_board_action
 )
 
 @dataclass
@@ -317,51 +321,65 @@ def load_game() -> Optional[ManagerState]:
     return None
 
 
-def update_fuel_price(state: ManagerState):
-    """Update fuel price dynamically with random fluctuations"""
-    # Random fluctuation between -0.05 and +0.05
-    fluctuation = random.uniform(-0.05, 0.05)
-    new_price = state.fuel_price + fluctuation
-    
-    # Clamp price between min (1.25) and max (2.00)
-    state.fuel_price = max(1.25, min(2.00, new_price))
-
-
-def view_fuel_price(state: ManagerState):
-    """Display current fuel price and price history"""
-    print(f"\n--- Current Fuel Price ---")
-    print(f"Price per litre: £{state.fuel_price:.2f}")
-    
-    # Show color indication
-    if state.fuel_price <= 1.40:
-        status = "🟢 LOW (Good buying opportunity!)"
-    elif state.fuel_price <= 1.70:
-        status = "🟡 MEDIUM (Average)"
-    else:
-        status = "🔴 HIGH (Consider waiting)"
-    print(f"Status: {status}")
-
+# ============================================================================
+# HOME SCREEN & MAIN MENU
+# ============================================================================
 
 def print_main_menu(state: ManagerState):
     mode = "Running Boards" if state.use_running_boards else "Static Routes"
     print(f"\n===== City Bus Manager – {state.company_name} [Mode: {mode}] =====")
     print(f"Fuel Price: £{state.fuel_price:.2f}/L")
+    print("\n1) View Information")
+    print("2) Route Management")
+    print("3) Fleet Management")
+    print("4) Operations")
+    print("5) Game Management")
+    print("6) Quit")
+
+
+def print_view_information_menu():
+    print("\n--- VIEW INFORMATION ---")
     print("1) View Routes")
     print("2) View Fleet")
-    print("3) Assign Bus to Route")
-    print("4) Change Route Schedule")
-    print("5) Run Day Simulation")
-    print("6) Buy New Bus")
-    print("7) Import Fleet from CSV")
-    print("8) Add New Route (Costs £500 per stop)")
-    print("9) Delete Route")
-    print("10) View Company Status")
-    print("11) View Fuel Price Details")
-    print("12) Save Game")
-    print("13) Load Game")
-    print("14) Running Board Management")
-    print("15) Toggle Assignment Mode")
-    print("16) Quit")
+    print("3) View Company Status")
+    print("4) View Fuel Price Details")
+    print("5) Back to Main Menu")
+
+
+def print_route_management_menu():
+    print("\n--- ROUTE MANAGEMENT ---")
+    print("1) Assign Bus to Route")
+    print("2) Change Route Schedule")
+    print("3) Add New Route (Costs £500 per stop)")
+    print("4) Delete Route")
+    print("5) Back to Main Menu")
+
+
+def print_fleet_management_menu():
+    print("\n--- FLEET MANAGEMENT ---")
+    print("1) Buy New Bus")
+    print("2) Import Fleet from CSV")
+    print("3) Back to Main Menu")
+
+
+def print_operations_menu():
+    print("\n--- OPERATIONS ---")
+    print("1) Run Day Simulation")
+    print("2) Running Board Management")
+    print("3) Back to Main Menu")
+
+
+def print_game_management_menu():
+    print("\n--- GAME MANAGEMENT ---")
+    print("1) Save Game")
+    print("2) Load Game")
+    print("3) Toggle Assignment Mode")
+    print("4) Back to Main Menu")
+
+
+# ============================================================================
+# ROUTE MANAGEMENT
+# ============================================================================
 
 def view_routes(state: ManagerState):
     if not state.routes:
@@ -372,6 +390,7 @@ def view_routes(state: ManagerState):
         assigned_bus = next((b.model for b in state.fleet if b.bus_id == route.assigned_bus_id), "None")
         total_time = sum(stop.minutes_from_prev for stop in route.stops[1:])
         print(f"[{i}] {route.name} | Journey Time: {total_time} mins | Schedule: {route.current_schedule_minutes} mins | Bus: {assigned_bus}")
+
 
 def view_fleet(state: ManagerState):
     if not state.fleet:
@@ -408,6 +427,11 @@ def view_fleet(state: ManagerState):
             break
         else:
             print("Invalid option, try again.")
+
+
+# ============================================================================
+# FLEET MANAGEMENT
+# ============================================================================
 
 def edit_fleet_number(state: ManagerState):
     if not state.fleet:
@@ -532,6 +556,11 @@ def change_bus_livery(state: ManagerState):
     print(f"  Cost: £{livery_cost:.2f}")
     print(f"  Remaining balance: £{state.money:.2f}")
 
+
+# ============================================================================
+# BUS ASSIGNMENT
+# ============================================================================
+
 def assign_bus_to_route(state: ManagerState):
     if state.use_running_boards:
         print("\nYou are in Running Board mode. Use Running Board Management (option 12) to assign buses.")
@@ -584,6 +613,7 @@ def assign_bus_to_route(state: ManagerState):
     bus.assigned_route = route.name
     print(f"Assigned {bus.model} (Fleet No: {bus.fleet_number if bus.fleet_number else 'N/A'}) to {route.name}")
 
+
 def change_route_schedule(state: ManagerState):
     if not state.routes:
         print("\nNo routes available to edit.")
@@ -616,6 +646,11 @@ def change_route_schedule(state: ManagerState):
 
     route.current_schedule_minutes = new_time
     print(f"Schedule updated: {route.name} now runs in {new_time} minutes.")
+
+
+# ============================================================================
+# DAY SIMULATION
+# ============================================================================
 
 def run_day_simulation_static(state: ManagerState):
     """Original static route simulation"""
@@ -795,6 +830,11 @@ def run_day_simulation(state: ManagerState):
         run_day_simulation_running_boards(state)
     else:
         run_day_simulation_static(state)
+
+
+# ============================================================================
+# FLEET OPERATIONS
+# ============================================================================
 
 def import_fleet_from_csv(state: ManagerState):
     """Import buses from a CSV file"""
@@ -1009,6 +1049,11 @@ def buy_new_bus(state: ManagerState):
     print(f"Congratulations! You bought a new {model}{dlc_msg} with fleet number {fleet_number} for £{price:,}.")
     print(f"Default livery: {new_bus.livery}")
 
+
+# ============================================================================
+# ROUTE CREATION & DELETION
+# ============================================================================
+
 def add_route(state: ManagerState):
     print("\n--- Add New Route ---")
     name = input("Enter route name: ").strip()
@@ -1092,6 +1137,36 @@ def delete_route(state: ManagerState):
     else:
         print("Deletion cancelled.")
 
+
+# ============================================================================
+# GAME STATUS & UTILITIES
+# ============================================================================
+
+def update_fuel_price(state: ManagerState):
+    """Update fuel price dynamically with random fluctuations"""
+    # Random fluctuation between -0.05 and +0.05
+    fluctuation = random.uniform(-0.05, 0.05)
+    new_price = state.fuel_price + fluctuation
+    
+    # Clamp price between min (1.25) and max (2.00)
+    state.fuel_price = max(1.25, min(2.00, new_price))
+
+
+def view_fuel_price(state: ManagerState):
+    """Display current fuel price and price history"""
+    print(f"\n--- Current Fuel Price ---")
+    print(f"Price per litre: £{state.fuel_price:.2f}")
+    
+    # Show color indication
+    if state.fuel_price <= 1.40:
+        status = "🟢 LOW (Good buying opportunity!)"
+    elif state.fuel_price <= 1.70:
+        status = "🟡 MEDIUM (Average)"
+    else:
+        status = "🔴 HIGH (Consider waiting)"
+    print(f"Status: {status}")
+
+
 def view_company_status(state: ManagerState):
     print(f"\n--- {state.company_name} Status ---")
     print(f"Day: {state.day}")
@@ -1107,6 +1182,11 @@ def view_company_status(state: ManagerState):
         boards_count = len(list_running_boards())
         print(f"Running boards available: {boards_count}")
 
+
+# ============================================================================
+# RUNNING BOARDS & ASSIGNMENT MODES
+# ============================================================================
+
 def running_board_menu(state: ManagerState):
     """Running board management submenu"""
     while True:
@@ -1116,7 +1196,10 @@ def running_board_menu(state: ManagerState):
         print("3) Assign Bus to Running Board")
         print("4) View Running Board Details")
         print("5) Delete Running Board")
-        print("6) Return to Main Menu")
+        print("6) Mass Create from CSV")
+        print("7) Batch Create (Interactive)")
+        print("8) View Activity Logs")
+        print("9) Return to Main Menu")
 
         choice = input("> ").strip()
 
@@ -1134,6 +1217,12 @@ def running_board_menu(state: ManagerState):
             from running_boards import delete_running_board_interactive
             delete_running_board_interactive(state)
         elif choice == "6":
+            create_running_boards_from_csv(state)
+        elif choice == "7":
+            create_running_boards_batch(state)
+        elif choice == "8":
+            view_running_board_logs()
+        elif choice == "9":
             break
         else:
             print("Invalid option, try again.")
@@ -1156,6 +1245,11 @@ def toggle_assignment_mode(state: ManagerState):
     else:
         print("Mode change cancelled.")
 
+
+# ============================================================================
+# MAIN GAME LOOP
+# ============================================================================
+
 def main():
     print("Welcome to City Bus Manager!")
     company_name = input("Please enter your company name (or leave blank to load a game): ").strip()
@@ -1174,39 +1268,90 @@ def main():
     while True:
         print_main_menu(state)
         choice = input("> ").strip()
+        
         if choice == "1":
-            view_routes(state)
+            # View Information submenu
+            while True:
+                print_view_information_menu()
+                sub_choice = input("> ").strip()
+                if sub_choice == "1":
+                    view_routes(state)
+                elif sub_choice == "2":
+                    view_fleet(state)
+                elif sub_choice == "3":
+                    view_company_status(state)
+                elif sub_choice == "4":
+                    view_fuel_price(state)
+                elif sub_choice == "5":
+                    break
+                else:
+                    print("Invalid option, try again.")
+        
         elif choice == "2":
-            view_fleet(state)
+            # Route Management submenu
+            while True:
+                print_route_management_menu()
+                sub_choice = input("> ").strip()
+                if sub_choice == "1":
+                    assign_bus_to_route(state)
+                elif sub_choice == "2":
+                    change_route_schedule(state)
+                elif sub_choice == "3":
+                    add_route(state)
+                elif sub_choice == "4":
+                    delete_route(state)
+                elif sub_choice == "5":
+                    break
+                else:
+                    print("Invalid option, try again.")
+        
         elif choice == "3":
-            assign_bus_to_route(state)
+            # Fleet Management submenu
+            while True:
+                print_fleet_management_menu()
+                sub_choice = input("> ").strip()
+                if sub_choice == "1":
+                    buy_new_bus(state)
+                elif sub_choice == "2":
+                    import_fleet_from_csv(state)
+                elif sub_choice == "3":
+                    break
+                else:
+                    print("Invalid option, try again.")
+        
         elif choice == "4":
-            change_route_schedule(state)
+            # Operations submenu
+            while True:
+                print_operations_menu()
+                sub_choice = input("> ").strip()
+                if sub_choice == "1":
+                    run_day_simulation(state)
+                elif sub_choice == "2":
+                    running_board_menu(state)
+                elif sub_choice == "3":
+                    break
+                else:
+                    print("Invalid option, try again.")
+        
         elif choice == "5":
-            run_day_simulation(state)
+            # Game Management submenu
+            while True:
+                print_game_management_menu()
+                sub_choice = input("> ").strip()
+                if sub_choice == "1":
+                    save_game(state)
+                elif sub_choice == "2":
+                    loaded = load_game()
+                    if loaded:
+                        state = loaded
+                elif sub_choice == "3":
+                    toggle_assignment_mode(state)
+                elif sub_choice == "4":
+                    break
+                else:
+                    print("Invalid option, try again.")
+        
         elif choice == "6":
-            buy_new_bus(state)
-        elif choice == "7":
-            import_fleet_from_csv(state)
-        elif choice == "8":
-            add_route(state)
-        elif choice == "9":
-            delete_route(state)
-        elif choice == "10":
-            view_company_status(state)
-        elif choice == "11":
-            view_fuel_price(state)
-        elif choice == "12":
-            save_game(state)
-        elif choice == "13":
-            loaded = load_game()
-            if loaded:
-                state = loaded
-        elif choice == "14":
-            running_board_menu(state)
-        elif choice == "15":
-            toggle_assignment_mode(state)
-        elif choice == "16":
             print(f"Exiting City Bus Manager. Thanks for playing, {state.company_name}!")
             break
         else:
