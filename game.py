@@ -318,6 +318,73 @@ def load_game() -> Optional[ManagerState]:
         print(f"File '{filename}' not found.")
     except Exception as e:
         print(f"Error loading game: {e}")
+
+
+def export_visualization_data(state: ManagerState):
+    """Export game data to JSON for visualization in visualization.js"""
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    # Prepare routes data
+    routes_data = []
+    for route in state.routes:
+        route_dict = {
+            "name": route.name,
+            "stops": [{"name": stop.name, "minutes_from_prev": stop.minutes_from_prev} for stop in route.stops],
+            "base_schedule_minutes": route.base_schedule_minutes,
+            "current_schedule_minutes": route.current_schedule_minutes,
+            "assigned_bus_id": route.assigned_bus_id
+        }
+        routes_data.append(route_dict)
+    
+    # Prepare fleet data
+    fleet_data = []
+    for bus in state.fleet:
+        bus_dict = {
+            "id": bus.bus_id,
+            "bus_id": bus.bus_id,
+            "model": bus.model,
+            "capacity": bus.capacity,
+            "status": "active" if bus.assigned_route else "idle",
+            "route": bus.assigned_route,
+            "health": bus.health,
+            "fuel_level": bus.fuel_level,
+            "fuel_capacity": bus.fuel_capacity
+        }
+        fleet_data.append(bus_dict)
+    
+    # Prepare statistics
+    stats = {
+        "routes": len(state.routes),
+        "stops": sum(len(r.stops) for r in state.routes),
+        "buses": len(state.fleet),
+        "active_buses": sum(1 for b in state.fleet if b.assigned_route),
+        "money": state.money,
+        "reputation": state.reputation,
+        "day": state.day
+    }
+    
+    # Combine all data
+    viz_data = {
+        "company_name": state.company_name,
+        "routes": routes_data,
+        "fleet": fleet_data,
+        "stats": stats
+    }
+    
+    # Export to web_data.json in the project root
+    output_path = os.path.join(script_dir, "web_data.json")
+    
+    try:
+        with open(output_path, "w") as f:
+            json.dump(viz_data, f, indent=2)
+        print(f"Visualization data exported to 'web_data.json'.")
+        print(f"Open visualization.html in a browser to view the data.")
+        print(f"\nData summary:")
+        print(f"  - Routes: {stats['routes']}")
+        print(f"  - Total Stops: {stats['stops']}")
+        print(f"  - Fleet: {stats['buses']} buses ({stats['active_buses']} active)")
+    except Exception as e:
+        print(f"Error exporting visualization data: {e}")
     return None
 
 
@@ -374,7 +441,8 @@ def print_game_management_menu():
     print("1) Save Game")
     print("2) Load Game")
     print("3) Toggle Assignment Mode")
-    print("4) Back to Main Menu")
+    print("4) Export Data for Visualization")
+    print("5) Back to Main Menu")
 
 
 # ============================================================================
@@ -1347,6 +1415,8 @@ def main():
                 elif sub_choice == "3":
                     toggle_assignment_mode(state)
                 elif sub_choice == "4":
+                    export_visualization_data(state)
+                elif sub_choice == "5":
                     break
                 else:
                     print("Invalid option, try again.")
